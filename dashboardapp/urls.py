@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import DashboardView, TaskReportDetailView, UserCreateView, UserUpdateView, UserDeleteView, toggle_admin_status
+from .views import AdminLoginView, DashboardView, TaskReportDetailView, UserCreateView, UserUpdateView, UserDeleteView, toggle_admin_status
 
 urlpatterns = [
+    path('login/', AdminLoginView.as_view(), name='admin-login'),
     path('', DashboardView.as_view(), name='dashboard'),
     path('users/create/', UserCreateView.as_view(), name='user-create'),
     path('users/<int:pk>/update/', UserUpdateView.as_view(), name='user-update'),

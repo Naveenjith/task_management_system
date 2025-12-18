@@ -5,8 +5,10 @@ from django.urls import reverse_lazy
 from django.contrib.auth.models import User, Group
 from .forms import TaskCreationForm, SuperAdminUserCreationForm, UserUpdateForm
 from taskapp.models import Task
-
-
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LoginView
+from django.core.exceptions import PermissionDenied
 # --- Custom Mixins ---
 class SuperAdminRequiredMixin(AccessMixin):
     def dispatch(self, request, *args, **kwargs):
@@ -24,6 +26,7 @@ class AdminOrSuperAdminMixin(AccessMixin):
 
 # --- Dashboard View ---
 class DashboardView(LoginRequiredMixin, TemplateView):
+    login_url = '/dashboard/login/'
     template_name = 'dashboard.html' 
 
     def get_context_data(self, **kwargs):
@@ -50,11 +53,16 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
 
     def post(self, request, *args, **kwargs):
-        form = TaskCreationForm(request.POST, user=request.user)
+        user = request.user
+        if not (user.is_superuser or user.groups.filter(name='Admin').exists()):
+            raise PermissionDenied
+
+        form = TaskCreationForm(request.POST, user=user)
         if form.is_valid():
             form.save()
             return redirect('dashboard')
         return self.render_to_response(self.get_context_data(form=form))
+
 
 # --- User Management Views ---
 class UserCreateView(SuperAdminRequiredMixin, CreateView):
@@ -78,6 +86,8 @@ class UserDeleteView(SuperAdminRequiredMixin, DeleteView):
 
 
 # --- Toggle Admin Status ---
+@require_POST
+@login_required
 def toggle_admin_status(request, pk):
     user = get_object_or_404(User, pk=pk)
     admin_group, _ = Group.objects.get_or_create(name='Admin')
@@ -89,9 +99,11 @@ def toggle_admin_status(request, pk):
 
     return redirect('dashboard')
 
-
 # --- Task Report Detail ---
 class TaskReportDetailView(AdminOrSuperAdminMixin, DetailView):
     model = Task
     template_name = 'task_report.html'
     context_object_name = 'task'
+
+class AdminLoginView(LoginView):
+    template_name = "registration/login.html"
